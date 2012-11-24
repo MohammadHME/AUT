@@ -82,7 +82,9 @@ void KLTTracker::process(cv::Mat &frame) {
             );
     // 2. loop over the tracked points to reject some
 //    int k = 0;
+#ifdef KLT_DEBUG
     std::cout << "Dead points: ";
+#endif
     for (int i = 0; i < points[1].size(); i++) {
         if (status[i] &&
         		(index==0 || (index>0 && isAlivePoint[index-1][i]) || i>=number_of_points) &&
@@ -97,15 +99,19 @@ void KLTTracker::process(cv::Mat &frame) {
 //            points[1][k++] = points[1][i];
 
         }else{
+#ifdef KLT_DEBUG
         	if(status[i])
         		std::cout << i << " ";
         	else
         		std::cout << i <<"# ";
+#endif
         	isAlivePoint[index][i]=false;
 
         }
     }
+#ifdef KLT_DEBUG
     std::cout << "\n";
+#endif
     for (int i = points[1].size(); i<MAX_NUMBER_OF_POINTS_TO_TRACK; i++)
             	isAlivePoint[index][i]=false;
     number_of_points = points[1].size();
@@ -128,7 +134,6 @@ void KLTTracker::calculateSSMPos(){
 //	_SSMPos(index,index);
 	Mat_<double> ssmPosFrame(index,index);
 	Mat_<double> ssmVelFrame(index,index);
-	std::cout << "\n";
 		for(int i=0;i<index;i++){
 
 			for(int j=0;j<=i;j++){
@@ -171,14 +176,20 @@ void KLTTracker::calculateSSMPos(){
 
 //		ssmPosFrame = (ssmPosFrame-min_dist)/(max_dist-min_dist)*255;
 //		ssmVelFrame = (ssmVelFrame-min_vel)/(max_vel-min_vel)*255;
+#ifdef KLT_DEBUG
 		std::cout <<"\n\n";
+#endif
 		for(int i=0;i<index;i++){
 			for(int j=0;j<index;j++){
 				ssmPosFrame(i,j) = (ssmPosFrame(i,j)-min_dist)/(max_dist-min_dist)*255;
 				ssmVelFrame(i,j) = (ssmVelFrame(i,j)-min_vel)/(max_vel-min_vel)*255;
+#ifdef KLT_DEBUG
 				std::cout << (int)ssmPosFrame(i,j) <<" ";
+#endif
 			}
+#ifdef KLT_DEBUG
 			std::cout <<"\n";
+#endif
 		}
 
 //		_SSMPos(index,index);
@@ -189,7 +200,9 @@ void KLTTracker::calculateSSMPos(){
 //		_SSMVel = ssmVelFrame;
 //		ssmPosFrame.deallocate();
 //		ssmVelFrame.deallocate();
+#ifdef KLT_DEBUG
 		std::cout << "Calculating SSMPos done.";
+#endif
 }
 
 void KLTTracker::drawSSMPos(){
@@ -209,8 +222,7 @@ void KLTTracker::drawSSM(Mat_<uchar> grayFrame){
 //		grayFrame.deallocate();
 //	colorFrame.deallocate();
 //	cvResizeWindow("Frame", 800, 800);
-	char c = cvWaitKey();\
-//	std::cout << c;
+//	cvWaitKey();
 }
 
 Mat_<uchar> KLTTracker::getSSMPos(){

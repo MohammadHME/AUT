@@ -11,6 +11,7 @@
 #include <opencv2/core/core.hpp>
 #include "stdafx.h"
 
+
 //class Features{
 //public:
 //	std::vector<std::vector<cv::Point2f> > points;

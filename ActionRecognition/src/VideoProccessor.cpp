@@ -14,6 +14,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
+#include <opencv2/contrib/contrib.hpp> // for colormap
 
 #include <opencv/cv.h>
 #include <iostream>
@@ -21,6 +22,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <ctime>
+#include <sys/stat.h>
 
 #include "cvblobs/BlobResult.h"
 #include "cvblobs/BlobOperators.h"
@@ -161,6 +163,105 @@ void VideoProccessor::run(int camera) {
 	tracker.drawSSMPos();
 	tracker.drawSSMVel();
 
+}
+
+Mat_<Vec3f> VideoProccessor::nextFrame(string actor,string camera,int frameIndex) {
+	// Reading next frame
+	char* filename = (char*) malloc(200);
+	sprintf(filename, DATASET_DIR "%s_png/cam%s/img%04d.png",
+			actor.c_str() , camera.c_str(), frameIndex);
+	Mat frame = imread(filename);
+	free(filename);
+
+#ifdef BKSUB
+	// converting background image from RGB to HSV.
+	// performance could be improved by moving this part to BackgroundModel class.
+	int camera_code = atoi(camera.c_str());
+	Mat_<Vec3f> bMean = bModel.bMean[camera_code];
+	Mat_<Vec3f> bVar = bModel.bVar[camera_code];
+	Mat_<Vec3f> hsvbMean = bMean.clone();
+	cvtColor(hsvbMean, hsvbMean, CV_BGR2HSV);
+	Mat_<Vec3f> hsvbVar = bVar.clone();
+	cvtColor(hsvbVar, hsvbVar, CV_BGR2HSV);
+
+	Mat_<Vec3f> result;
+	frame.copyTo(result);
+
+	removeBackground(result, hsvbMean, hsvbVar);
+
+	return result;
+#else
+	return frame;
+#endif
+}
+
+void VideoProccessor::run(string actor,string action, string camera,int startFrame,int endFrame) {
+	int frameIndex = startFrame;
+	Mat frame;
+	Mat_<Vec3f> output;
+	Mat_<Vec3f> silhouette;
+	 // KEY LINE: Start the window thread
+	cvStartWindowThread();
+	namedWindow("Frame",0);
+	cvMoveWindow("Frame", 800, 300);
+	KLTTracker tracker;
+	tracker.begin();
+
+	double total_time=0;
+	while (frameIndex < endFrame) {
+		clock_t start = clock();
+
+		frame = nextFrame(actor,camera,frameIndex);
+
+		vector<Point2f>  featurePoints;
+#ifdef KLT
+		tracker.process(frame);
+#endif
+
+		total_time += ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
+		displayFrame(frame, (int)(frameIndex-startFrame)/total_time);
+
+		char c = cvWaitKey(33);
+		if (c == 27)
+			exit(0);
+		frameIndex++;
+	}
+#ifdef KLT
+	tracker.calculateSSMPos();
+	tracker.drawSSMPos();
+	tracker.drawSSMVel();
+	saveMatrix(tracker.getSSMPos(),"Pos",actor,action,camera,startFrame,endFrame);
+#endif
+}
+
+void VideoProccessor::saveMatrix(Mat_<uchar> matrix,string type, string actor,string action,
+			string camera,int startFrame,int endFrame){
+
+
+#if defined _WIN32 || defined _WIN64
+//    _mkdir(strPath.c_str());
+#elif defined(__linux__)
+	char* mkdirCommand = (char*) malloc(200);
+	sprintf(mkdirCommand, "mkdir -p "OUTPUT_DIR "%s/%s/",type.c_str(),action.c_str());
+	system(mkdirCommand);
+	free(mkdirCommand);
+
+    char* filePath = (char*) malloc(200);
+    sprintf(filePath, OUTPUT_DIR "%s/%s/%s_cam%s_%d_%d.png",
+			type.c_str(),action.c_str(), actor.c_str(), camera.c_str(),startFrame,endFrame);
+
+    char* cfilePath = (char*) malloc(200);
+	sprintf(cfilePath, OUTPUT_DIR "%s/%s/c_%s_cam%s_%d_%d.png",
+			type.c_str(),action.c_str(), actor.c_str(), camera.c_str(),startFrame,endFrame);
+#endif
+	imwrite(filePath,matrix);
+
+	Mat colorFrame;
+	resize(matrix,matrix,Size(500,500));
+	applyColorMap(matrix,colorFrame,COLORMAP_JET);
+	imwrite(cfilePath,colorFrame);
+
+	free(filePath);
 }
 
 void VideoProccessor::displayFrame(Mat &frame, int fps){
