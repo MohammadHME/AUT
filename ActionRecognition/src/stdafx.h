@@ -14,8 +14,11 @@
 #define DEBUG
 #define BKSUB
 #define BKMORPH
+
+//#define HSV_BACKGROUND_SUBTRACTION
+#define BACKGROUND_SUBTRACTION_T 3
 #define BBLOB
-#define KLT
+//#define KLT
 
 //#define KLT_DEBUG
 //#define BLUR_ENABLED

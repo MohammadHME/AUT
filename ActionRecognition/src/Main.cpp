@@ -18,6 +18,7 @@ int main() {
 	cout << "!!!Running!!!" << endl; // prints !!!Hello World!!!
 	DataSet dataset;
 	BackgroundModel bModel;
+//	bModel.buildAllBackgroundsModel();return 0;
 	bModel.loadBackgroundsModel();
 	VideoProccessor vp;
 	vp.bModel=bModel;

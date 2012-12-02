@@ -33,7 +33,6 @@ void DataSet::loadInputs() {
 			infile >> line;
 			if (line.compare("Cameras{") == 0) {
 				infile >> line;
-				int i = 0;
 				while (line.compare("}") != 0) {
 					cameras.push_back(line);
 					infile >> line;
@@ -41,7 +40,6 @@ void DataSet::loadInputs() {
 			}
 			if (line.compare("Actors{") == 0) {
 				infile >> line;
-				int i = 0;
 				while (line.compare("}") != 0) {
 					actors.push_back(line);
 					infile >> line;
@@ -49,7 +47,6 @@ void DataSet::loadInputs() {
 			}
 			if (line.compare("Actions{") == 0) {
 				infile >> line;
-				int i = 0;
 				while (line.compare("}") != 0) {
 					actions.push_back(line);
 					infile >> line;

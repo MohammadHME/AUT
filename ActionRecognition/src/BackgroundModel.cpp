@@ -21,7 +21,7 @@
 using namespace std;
 using namespace cv;
 
-//#define HSV
+#define HSV
 
 BackgroundModel::BackgroundModel() {
 
@@ -66,11 +66,17 @@ void BackgroundModel::loadBackgroundsModel() {
 
 	char* outputMeanFile = (char*) malloc(200);
 	char* outputVarFile = (char*) malloc(200);
+	char* outputStdFile = (char*) malloc(200);
 	for(int i=0;i<NUMBER_OF_CAMERAS;i++){
-		sprintf(outputMeanFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_mean.png", i);
-		sprintf(outputVarFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_var.png", i);
+		sprintf(outputMeanFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_mean.bmp", i);
+		sprintf(outputVarFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_var.bmp", i);
+		sprintf(outputStdFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_std.bmp", i);
 		bMean[i]=imread(outputMeanFile);
 		bVar[i]=imread(outputVarFile);
+		bStd[i]=imread(outputStdFile);
+		cvtColor(bMean[i],bMean_hsv[i],CV_BGR2HSV);
+		cvtColor(bVar[i],bVar_hsv[i],CV_BGR2HSV);
+		cvtColor(bStd[i],bStd_hsv[i],CV_BGR2HSV);
 	}
 	free(outputMeanFile);free(outputVarFile);
 
@@ -141,11 +147,20 @@ void BackgroundModel::buildBackgroundModel(char* dir, int camera, int framecount
 			if(index==0){
 				sum=(frame - mean).mul(frame - mean);
 #ifdef HSV
+
 				sum2=(hsvframe - hsvmean).mul(hsvframe - hsvmean);
 #endif
 			}else{
 				sum = sum + (frame - mean).mul(frame - mean);
 #ifdef HSV
+				for (int i = 0; i < hsvframe.rows; i++){
+					for (int j = 0; j < hsvframe.cols; j++) {
+						Vec3f f = hsvframe(i, j);
+						if(f[0]>180)
+							f[0] = 360-f[0];
+						hsvframe(i, j)=f[0];
+					}
+				}
 				sum2 = sum2 + (hsvframe - hsvmean).mul(hsvframe - hsvmean);
 #endif
 			}
@@ -158,28 +173,50 @@ void BackgroundModel::buildBackgroundModel(char* dir, int camera, int framecount
 #endif
 		}
 	    Mat_<Vec3f> variance = sum/(framecounts - 1-1);
-	    Mat_<Vec3f> hsvvariance = sum/(framecounts - 1-1);
-
+	    Mat_<Vec3f> std;
+	    cv::sqrt(variance,std);
+#ifdef HSV
+	    Mat_<Vec3f> hsv_variance = sum2/(framecounts - 1-1);
+	    Mat_<Vec3f> hsv_std;
+		cv::sqrt(hsv_variance,hsv_std);
+#endif
 	    bMean[camera] = mean;
 	    bVar[camera] = variance;
+	    bStd[camera] = std;
 
 	    //Saving results as images.
 	    char* outputMeanFile = (char*) malloc(200);
 	    char* outputVarFile = (char*) malloc(200);
-		sprintf(outputMeanFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_mean.png", camera);
-		sprintf(outputVarFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_var.png", camera);
+	    char* outputStdFile = (char*) malloc(200);
+		sprintf(outputMeanFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_mean.bmp", camera);
+		sprintf(outputVarFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_var.bmp", camera);
+		sprintf(outputStdFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_std.bmp", camera);
 		imwrite(outputMeanFile ,mean);
 		imwrite(outputVarFile ,variance);
+		imwrite(outputStdFile ,std);
 
 #ifdef HSV
-		sprintf(outputMeanFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_hsvmean.png", camera);
-		sprintf(outputVarFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_hsvvar.png", camera);
-		imwrite(outputMeanFile ,mean);
-		imwrite(outputVarFile ,variance);
+		sprintf(outputMeanFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_hsv_mean.bmp", camera);
+		sprintf(outputVarFile, DATASET_DIR BACKGROUND_MODEL_DIR "cam%d_hsv_var.bmp", camera);
+		char* outputStdFile0 = (char*) malloc(200);
+		char* outputStdFile1 = (char*) malloc(200);
+		char* outputStdFile2 = (char*) malloc(200);
+		sprintf(outputStdFile0, DATASET_DIR BACKGROUND_MODEL_DIR "hsv/cam%d_hsv_std[0].bmp", camera);
+		sprintf(outputStdFile1, DATASET_DIR BACKGROUND_MODEL_DIR "hsv/cam%d_hsv_std[1].bmp", camera);
+		sprintf(outputStdFile2, DATASET_DIR BACKGROUND_MODEL_DIR "hsv/cam%d_hsv_std[2].bmp", camera);
+//		imwrite(outputMeanFile ,hsvmean);
+//		imwrite(outputVarFile ,hsv_variance);
+		vector<Mat> hsv_planes;
+		split( hsv_std, hsv_planes );
+		imwrite(outputStdFile0 ,hsv_planes[0]/180*255);
+		imwrite(outputStdFile1 ,hsv_planes[1]*255);
+		imwrite(outputStdFile2 ,hsv_planes[2]/100*255);
+		free(outputStdFile0);free(outputStdFile1);free(outputStdFile2);
 #endif
 	    cout << "Building background model for cam " << camera << " finished."<< endl;
 
 	    free(frameFile);
 		free(outputMeanFile);
 		free(outputVarFile);
+		free(outputStdFile);
 }
