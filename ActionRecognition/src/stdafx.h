@@ -3,7 +3,7 @@
 #define DATASET_DIR "/home/mohammad/AUT/Project/IXMAS/"
 #define ACTOR "alba1"
 #define CAMERA 0
-#define DATASET_INPUT_FILE "/home/mohammad/AUT/Project/IXMAS/input.txt"
+#define DATASET_INPUT_FILE "Inputs/input.txt"
 #define DATASET_CONFIG_FILE "/home/mohammad/AUT/Project/IXMAS/conf.txt"
 #define OUTPUT_DIR "/home/mohammad/AUT/Project/IXMAS/Output/"
 
@@ -20,7 +20,7 @@
 //#define HSV_BACKGROUND_SUBTRACTION
 #define BACKGROUND_SUBTRACTION_T 3
 #define BBLOB
-#define KLT
+//#define KLT
 
 //#define KLT_DEBUG
 
