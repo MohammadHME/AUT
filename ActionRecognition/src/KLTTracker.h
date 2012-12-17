@@ -27,8 +27,8 @@ public:
 	void calculateSSMPos();
 	cv::Mat_<uchar> getSSMPos();
 	cv::Mat_<uchar> getSSMVel();
-	void process(cv::Mat &frame);
-	void drawTrackedPoints(cv::Mat &frame, std::vector<cv::Point2f>  prevPoints,std::vector<cv::Point2f>  featurePoints);
+	void process(cv::Mat &frame, cv::Mat_<uchar> mask);
+	void drawTrackedPoints(cv::Mat &frame, int index, std::vector<cv::Point2f>  prevPoints,std::vector<cv::Point2f>  featurePoints);
 private:
 	void drawSSM(cv::Mat_<uchar>);
 	std::vector<cv::Point2f> points[2]; // initial position of tracked points
@@ -37,7 +37,9 @@ private:
 	std::vector<std::vector<cv::Point2f> > featurePoints;
 	int index;
 //	std::vector< std::vector<bool> > goodPoints;
-	bool isAlivePoint[MAX_ACTION_LENGTH][MAX_NUMBER_OF_POINTS_TO_TRACK];
+	bool isAlivePoint[MAX_NUMBER_OF_POINTS_LEN][MAX_NUMBER_OF_POINTS_LEN];
+	int alivePointsCounter;
+	int pointMaps[MAX_ACTION_LENGTH][MAX_NUMBER_OF_POINTS_TO_TRACK];
 
 
 	cv::Mat_<uchar> _SSMPos, _SSMVel;
@@ -45,7 +47,7 @@ private:
 
 //    Features features;
 
-    int number_of_points; // maximum number of points to detect
+    int lastPointIndex; // maximum number of points to detect
     double qlevel; // quality level for feature detection
     double min_dist_btw_Points; // min distance between two points
     std::vector<uchar> status; // status of tracked features

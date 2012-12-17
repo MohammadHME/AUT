@@ -7,18 +7,21 @@
 #define DATASET_CONFIG_FILE "/home/mohammad/AUT/Project/IXMAS/conf.txt"
 #define OUTPUT_DIR "/home/mohammad/AUT/Project/IXMAS/Output/"
 
-#define MAX_NUMBER_OF_POINTS_TO_TRACK 200
+#define MAX_NUMBER_OF_POINTS_TO_TRACK 50
+#define MAX_NUMBER_OF_POINTS_LEN 1000
 #define MAX_ACTION_LENGTH 150
 #define CAM_DIR "cam"
 #define NUMBER_OF_CAMERAS 5
 #define DEBUG
+
 #define BKSUB
 #define BKMORPH
 
 //#define HSV_BACKGROUND_SUBTRACTION
 #define BACKGROUND_SUBTRACTION_T 3
 #define BBLOB
-//#define KLT
+#define KLT
 
 //#define KLT_DEBUG
+
 //#define BLUR_ENABLED

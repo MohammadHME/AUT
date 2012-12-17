@@ -125,10 +125,8 @@ Mat_<uchar> VideoProccessor::removeBackground(Mat &frame, Mat_<Vec3f> &bMean,
 
 void VideoProccessor::removeShadow(Mat &frame,Mat_<uchar> &forground, Mat_<Vec3f> &bMean_hsv,
 	Mat_<Vec3f> &bVar_hsv, Mat_<Vec3f> &bStd_hsv){
-
-
+	bool isBlank=true;
 	int i_min=forground.rows,i_max=0,j_min=forground.cols,j_max=0;
-
 	for (int i=0;i<forground.rows-1;i++)
 		for (int j=0;j<forground.cols-1;j++){
 			if(forground(i,j)==0)
@@ -141,7 +139,10 @@ void VideoProccessor::removeShadow(Mat &frame,Mat_<uchar> &forground, Mat_<Vec3f
 			j_min = j;
 		if(j>j_max)
 			j_max=j;
+		isBlank=false;
 		}
+	if(isBlank)
+		return;
 	Rect roi(j_min,i_min,j_max-j_min,i_max-i_min);
 	Mat_<uchar> forgroundROI = forground(roi);
 
@@ -200,23 +201,21 @@ Mat_<uchar> VideoProccessor::findBiggestBlob(Mat_<uchar> &forground){
 	Mat_<Vec3b> temp = Mat(blobMask,false);
 //	bitwise_and(frame_clone, temp, frame);
 	cvtColor(temp,result,CV_BGR2GRAY);
+	cvReleaseImage(&blobMask);
 	return result;
 }
 
-Mat_<Vec3f> VideoProccessor::nextFrame(string actor,string camera,int frameIndex) {
+Mat VideoProccessor::nextFrame(string actor,string camera,int frameIndex, Mat_<uchar> &mask) {
 	// Reading next frame
 	char* filename = (char*) malloc(200);
 	sprintf(filename, DATASET_DIR "%s_png/cam%s/img%04d.png",
 			actor.c_str() , camera.c_str(), frameIndex);
 	Mat frame = imread(filename);
 	free(filename);
-
-#ifdef BKSUB
-	// converting background image from RGB to HSV.
-	// performance could be improved by moving this part to BackgroundModel class.
 	int camera_code = atoi(camera.c_str());
 	Mat result;
 	frame.copyTo(result);
+#ifdef BKSUB
 #ifdef HSV_BACKGROUND_SUBTRACTION
 	removeBackground(result, bModel.bMean_hsv[camera_code],
 			bModel.bVar_hsv[camera_code],bModel.bStd_hsv[camera_code]);
@@ -225,10 +224,17 @@ Mat_<Vec3f> VideoProccessor::nextFrame(string actor,string camera,int frameIndex
 			bModel.bVar[camera_code],bModel.bStd[camera_code]);
 	removeShadow(result,forgroundMask, bModel.bMean_hsv[camera_code],
 			bModel.bVar_hsv[camera_code],bModel.bStd_hsv[camera_code]);
-	cvtColor(forgroundMask,result,CV_GRAY2BGR);
+	Mat_<Vec3b> temp;
+	cvtColor(forgroundMask,temp,CV_GRAY2BGR);
+	bitwise_and(temp, frame, result);
+//	result = temp;
+
 #endif
 	return result;
 #else
+	Mat_<uchar> forgroundMask = removeBackground(result, bModel.bMean[camera_code],
+				bModel.bVar[camera_code],bModel.bStd[camera_code]);
+	mask = forgroundMask;
 	return frame;
 #endif
 }
@@ -249,17 +255,23 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	while (frameIndex < endFrame) {
 		clock_t start = clock();
 
-		frame = nextFrame(actor,camera,frameIndex);
+		Mat_<uchar> mask;
+		frame = nextFrame(actor,camera,frameIndex,mask);
 
 		vector<Point2f>  featurePoints;
 #ifdef KLT
-		tracker.process(frame);
+		tracker.process(frame,mask);
 #endif
 
 		total_time += ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
 		displayFrame(frame, actor,action,camera, (int)(frameIndex-startFrame)/total_time);
 
 		char c = cvWaitKey(33);
+//		if(frameIndex>=115){
+//		char* cfilePath = "/home/mohammad/AUT/Project/IXMAS/a.bmp";
+//		cv::imwrite(cfilePath,frame);
+//			c = cvWaitKey();
+//		}
 		if (c == 27)
 			exit(0);
 		if(c==32){
@@ -329,85 +341,4 @@ void VideoProccessor::displayFrame(Mat &frame, int fps){
 	putText(frame, ss.str(), cvPoint(10, 20), FONT_HERSHEY_COMPLEX_SMALL,
 			0.8, cvScalar(255, 255, 255), 1, CV_AA);
 	imshow("Frame", frame);
-}
-
-
-
-
-
-Mat_<Vec3f> VideoProccessor::nextFrame(int camera) {
-	// Reading next frame
-	char* filename = (char*) malloc(200);
-	sprintf(filename, DATASET_DIR ACTOR "_png/cam%d/img%04d.png", camera, file_index);
-	Mat frame = imread(filename);
-	free(filename);
-	file_index++;
-
-#ifdef BKSUB
-	// converting background image from RGB to HSV.
-	// performance could be improved by moving this part to BackgroundModel class.
-	Mat_<Vec3f> bMean = bModel.bMean[camera];
-	Mat_<Vec3f> bVar = bModel.bVar[camera];
-	Mat_<Vec3f> hsvbMean = bMean.clone();
-	cvtColor(hsvbMean, hsvbMean, CV_BGR2HSV);
-	Mat_<Vec3f> hsvbVar = bVar.clone();
-	cvtColor(hsvbVar, hsvbVar, CV_BGR2HSV);
-	Mat_<Vec3f> hsvbStd = bModel.bStd[camera].clone();
-	cvtColor(hsvbStd, hsvbStd, CV_BGR2HSV);
-
-	Mat_<Vec3f> result;
-	frame.copyTo(result);
-
-	removeBackground(result, hsvbMean, hsvbVar,hsvbStd);
-
-	return result;
-#else
-	return frame;
-#endif
-}
-
-void VideoProccessor::run(int camera) {
-	file_index = 44;
-	VideoCapture capture(0);
-	Mat frame;
-	Mat_<Vec3f> output;
-	Mat_<Vec3f> silhouette;
-	 // KEY LINE: Start the window thread
-	cvStartWindowThread();
-	namedWindow("Frame",0);
-	cvMoveWindow("Frame", 800, 300);
-//	FeatureExctractor extractor;
-	KLTTracker tracker;
-	tracker.begin();
-
-	double total_time=0;
-	while (file_index < 110) {
-		//if (!capture.read(frame))
-		//    break;
-		clock_t start = clock();
-
-		frame = nextFrame(camera);
-
-		vector<Point2f>  featurePoints;
-#ifdef KLT
-		tracker.process(frame);
-		//extractor.process(frame, silhouette, output);
-#endif
-
-		total_time += ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
-		displayFrame(frame, (int)(file_index/total_time));
-
-		char c = cvWaitKey(33);
-		if (c == 27)
-			break;
-		if(c==32){
-			do{
-				c = cvWaitKey();
-			}while(c!=32);
-		}
-	}
-	tracker.calculateSSMPos();
-	tracker.drawSSMPos();
-	tracker.drawSSMVel();
-
 }

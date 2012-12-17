@@ -21,7 +21,7 @@
 using namespace cv;
 
 KLTTracker::KLTTracker() {
-	number_of_points=0;
+	lastPointIndex=0;
 	index=0;
 	min_dist_btw_Points=5;
 	qlevel = 0.01;
@@ -33,17 +33,17 @@ KLTTracker::~KLTTracker() {
 
 void KLTTracker::begin() {
 	index=0;
-
+	alivePointsCounter=0;
 	for(int i=0;i<featurePoints.size();i++)
 		featurePoints[i].empty();
 	featurePoints.empty();
 
 	for (int i=0;i<MAX_ACTION_LENGTH;i++)
-		for(int j=1;j<MAX_NUMBER_OF_POINTS_TO_TRACK;j++)
+		for(int j=1;j<MAX_NUMBER_OF_POINTS_LEN;j++)
 			isAlivePoint[i][j]=true;
 }
 
-void KLTTracker::process(cv::Mat &frame) {
+void KLTTracker::process(cv::Mat &frame, cv::Mat_<uchar> mask) {
     Mat grayFrame;
     cvtColor(frame, grayFrame, CV_BGR2GRAY);
 
@@ -55,43 +55,54 @@ void KLTTracker::process(cv::Mat &frame) {
         grayFrame.copyTo(prevGrayFrame);
 
     std::vector<cv::Point2f>  newFeaturePoints;
-    if (index==0 || points[0].size() <= MAX_NUMBER_OF_POINTS_TO_TRACK) {
+//    if (index==0 || points[0].size() <= MAX_NUMBER_OF_POINTS_TO_TRACK) {
+    if (alivePointsCounter < MAX_NUMBER_OF_POINTS_TO_TRACK){
         // detect the features
         cv::goodFeaturesToTrack(grayFrame, // the image
         		newFeaturePoints, // the output detected features
-        		MAX_NUMBER_OF_POINTS_TO_TRACK, // the maximum number of features
+        		MAX_NUMBER_OF_POINTS_TO_TRACK - alivePointsCounter, // the maximum number of features
                 qlevel, // quality level
                 min_dist_btw_Points// min distance between two features
-                );
-
+                ,mask);
         // add the detected features to the currently tracked features
         points[0].insert(points[0].end(),
         		newFeaturePoints.begin(), newFeaturePoints.end());
         initial.insert(initial.end(),
         		newFeaturePoints.begin(), newFeaturePoints.end());
+        std::cout << newFeaturePoints.size() << "\t" << points[0].size() << "\n";
     }
 
     if(points[0].empty())
         return;
+    double d = 1e-4;
+    Size s(39,39);
+    TermCriteria t(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01);
     calcOpticalFlowPyrLK(
     		prevGrayFrame, grayFrame, // 2 consecutive images
             points[0], // input point positions in first image
             points[1], // output point positions in the 2nd image
             status, // tracking success
             err// tracking error
-            );
+//            );
+           ,s,
+           3,
+		   t,
+		   0,
+		   d);
     // 2. loop over the tracked points to reject some
 //    int k = 0;
 #ifdef KLT_DEBUG
     std::cout << "Dead points: ";
 #endif
+    alivePointsCounter=0;
     for (int i = 0; i < points[1].size(); i++) {
-        if (status[i] &&
-        		(index==0 || (index>0 && isAlivePoint[index-1][i]) || i>=number_of_points) &&
+        if (	status[i]
+            	&& (index==0 || (index>0 && isAlivePoint[index-1][i]) || i>=lastPointIndex)
                 // if point has moved
-                ((pow(points[0][i].x - points[1][i].x,2)+
-                (pow(points[0][i].y - points[1][i].y,2)) < 10))
+                && (pow(points[0][i].x - points[1][i].x,2) + pow(points[0][i].y - points[1][i].y,2) < 20)
                 ) {
+        	isAlivePoint[index][i]=true;
+        	alivePointsCounter++;
 //        	isAlivePoint[i]=true;
 //            // keep this point in vector
 //        	points[0][k] = points[0][i];
@@ -106,6 +117,13 @@ void KLTTracker::process(cv::Mat &frame) {
         		std::cout << i <<"# ";
 #endif
         	isAlivePoint[index][i]=false;
+//        	if(status[i]
+//                  	&& (index==0 || (index>0 && isAlivePoint[index-1][i]) || i>=lastPointIndex)){
+//            	std::cout <<i<<"\t"<< (int)(points[0][i]).x << "-" << points[1][i].x
+//            			<< "," << points[0][i].y <<"-"<< points[1][i].y
+//            			<< ":" << pow(points[0][i].x - points[1][i].x,2) + pow(points[0][i].y - points[1][i].y,2)
+//            			<< "\n";
+//        	}
 
         }
     }
@@ -114,7 +132,7 @@ void KLTTracker::process(cv::Mat &frame) {
 #endif
     for (int i = points[1].size(); i<MAX_NUMBER_OF_POINTS_TO_TRACK; i++)
             	isAlivePoint[index][i]=false;
-    number_of_points = points[1].size();
+    lastPointIndex = points[1].size();
     // eliminate unsuccesful points
 //    points[1].resize(k);
 //    points[0].resize(k);
@@ -123,7 +141,7 @@ void KLTTracker::process(cv::Mat &frame) {
 
     featurePoints.push_back(points[1]);
     index++;
-    drawTrackedPoints(frame,initial,points[1]);
+    drawTrackedPoints(frame,index,initial,points[1]);
 
     // 4. current points and image become previous ones
     std::swap(points[1], points[0]);
@@ -134,12 +152,13 @@ void KLTTracker::calculateSSMPos(){
 //	_SSMPos(index,index);
 	Mat_<double> ssmPosFrame(index,index);
 	Mat_<double> ssmVelFrame(index,index);
+	int numberOfAlivePoints=0;
 		for(int i=0;i<index;i++){
 
 			for(int j=0;j<=i;j++){
 				double totalDist=0;
 				double totalVel=0;
-				int numberOfAlivePoints=0;
+				numberOfAlivePoints=0;
 				for(int k=0; k<MAX_NUMBER_OF_POINTS_TO_TRACK;k++){
 					if(isAlivePoint[i][k] && isAlivePoint[j][k]){
 						double dist = sqrt( pow(featurePoints[i][k].x-featurePoints[j][k].x,2)+
@@ -158,8 +177,10 @@ void KLTTracker::calculateSSMPos(){
 				ssmPosFrame(j,i)=ssmPosFrame(i,j);
 				ssmVelFrame(i,j)=totalVel;
 				ssmVelFrame(j,i)=ssmVelFrame(i,j);
+				std::cout << numberOfAlivePoints << " ";
 			}
 		}
+		std::cout << std::endl << numberOfAlivePoints << " --\n";
 		double max_dist = 0 , max_vel=0;
 		double min_dist = UINT_MAX , min_vel = UINT_MAX;
 		for(int i=0;i<index;i++)
@@ -173,7 +194,7 @@ void KLTTracker::calculateSSMPos(){
 				else if(ssmVelFrame(i,j)<min_vel)
 					min_vel=ssmVelFrame(i,j);
 				}
-
+		std::cout << "MAX: " << max_dist << std::endl;
 //		ssmPosFrame = (ssmPosFrame-min_dist)/(max_dist-min_dist)*255;
 //		ssmVelFrame = (ssmVelFrame-min_vel)/(max_vel-min_vel)*255;
 #ifdef KLT_DEBUG
@@ -198,8 +219,6 @@ void KLTTracker::calculateSSMPos(){
 		ssmPosFrame.assignTo(_SSMPos,CV_8UC1);
 		ssmVelFrame.assignTo(_SSMVel,CV_8UC1);
 //		_SSMVel = ssmVelFrame;
-//		ssmPosFrame.deallocate();
-//		ssmVelFrame.deallocate();
 #ifdef KLT_DEBUG
 		std::cout << "Calculating SSMPos done.";
 #endif
@@ -229,13 +248,17 @@ Mat_<uchar> KLTTracker::getSSMPos(){
 	return _SSMPos;
 }
 
-void KLTTracker::drawTrackedPoints(Mat &frame,
+void KLTTracker::drawTrackedPoints(Mat &frame, int index,
 		std::vector<cv::Point2f>  prevPoints,
 		std::vector<cv::Point2f>  featurePoints) {
 //		std::cout << prevPoints.size() << " ," << featurePoints.size() << "\n";
-    for (int i = 0; i < featurePoints.size(); i++) {
-        // draw line and circle
-        line(frame,prevPoints[i], featurePoints[i], Scalar(255, 255, 255));
-        circle(frame, featurePoints[i], 3, Scalar(255, 255, 255), -1);
+
+    for (uint i = 0; i < featurePoints.size(); i++) {
+    	Scalar c(0,0,255);
+    	if(!isAlivePoint[index][i]){
+			c = Scalar(255,0,0);
+        }
+        line(frame,prevPoints[i], featurePoints[i], c);
+		circle(frame, featurePoints[i], 3, c, -1);
     }
 }
