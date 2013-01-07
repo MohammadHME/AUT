@@ -12,9 +12,14 @@
 #include "DataSet.h"
 #include <string>
 #include <map>
+
+#include "test/Test.h"
+
 using namespace std;
 
 int main() {
+	IPPR::Test test;test.run();return 0;
+
 	cout << "!!!Running!!!" << endl; // prints !!!Hello World!!!
 	DataSet dataset;
 	BackgroundModel bModel;
@@ -68,3 +73,4 @@ int main() {
 
 	return 0;
 }
+

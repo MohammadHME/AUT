@@ -85,7 +85,7 @@ void KLTTracker::process(cv::Mat &frame, cv::Mat_<uchar> mask) {
             err// tracking error
 //            );
            ,s,
-           3,
+           1,
 		   t,
 		   0,
 		   d);

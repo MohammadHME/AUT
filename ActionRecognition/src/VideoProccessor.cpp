@@ -9,6 +9,7 @@
 #include "VideoProccessor.h"
 #include "BackgroundModel.h"
 #include "KLTTracker.h"
+#include "SSM/SilhouetteProcessor.h"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -227,6 +228,7 @@ Mat VideoProccessor::nextFrame(string actor,string camera,int frameIndex, Mat_<u
 	Mat_<Vec3b> temp;
 	cvtColor(forgroundMask,temp,CV_GRAY2BGR);
 	bitwise_and(temp, frame, result);
+	mask = forgroundMask;
 //	result = temp;
 
 #endif
@@ -248,9 +250,14 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	cvStartWindowThread();
 	namedWindow("Frame",0);
 	cvMoveWindow("Frame", 800, 300);
+#ifdef KLT
 	KLTTracker tracker;
 	tracker.begin();
-
+#endif
+#ifdef SIL
+	IPPR::SilhouetteProcessor sil;
+	sil.begin();
+#endif
 	double total_time=0;
 	while (frameIndex < endFrame) {
 		clock_t start = clock();
@@ -262,7 +269,9 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 #ifdef KLT
 		tracker.process(frame,mask);
 #endif
-
+#ifdef SIL
+		sil.process(frame,mask);
+#endif
 		total_time += ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
 		displayFrame(frame, actor,action,camera, (int)(frameIndex-startFrame)/total_time);
 
@@ -287,6 +296,11 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	tracker.drawSSMVel();
 	saveMatrix(tracker.getSSMPos(),"Pos",actor,action,camera,startFrame,endFrame);
 #endif
+#ifdef SIL
+	sil.calculateSSM();
+	sil.drawSSM();
+	saveMatrix(sil.getSSM(),"Sil",actor,action,camera,startFrame,endFrame);
+#endif
 }
 
 void VideoProccessor::saveMatrix(Mat_<uchar> matrix,string type, string actor,string action,
@@ -302,7 +316,7 @@ void VideoProccessor::saveMatrix(Mat_<uchar> matrix,string type, string actor,st
 	free(mkdirCommand);
 
     char* filePath = (char*) malloc(200);
-    sprintf(filePath, OUTPUT_DIR "%s/%s/%s_cam%s_%d_%d.png",
+    sprintf(filePath, OUTPUT_DIR "%s/%s/r_%s_cam%s_%d_%d.png",
 			type.c_str(),action.c_str(), actor.c_str(), camera.c_str(),startFrame,endFrame);
 
     char* cfilePath = (char*) malloc(200);
