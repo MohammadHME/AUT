@@ -10,6 +10,8 @@
 #include "BackgroundModel.h"
 #include "KLTTracker.h"
 #include "SSM/OpticalFlowProcessor.h"
+#include "SSM/SilhouetteProcessor.h"
+
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -28,7 +30,6 @@
 
 #include "cvblobs/BlobResult.h"
 #include "cvblobs/BlobOperators.h"
-
 
 
 using namespace std;
@@ -226,16 +227,21 @@ Mat VideoProccessor::nextFrame(string actor,string camera,int frameIndex, Mat_<u
 			bModel.bVar[camera_code],bModel.bStd[camera_code]);
 	removeShadow(result,forgroundMask, bModel.bMean_hsv[camera_code],
 			bModel.bVar_hsv[camera_code],bModel.bStd_hsv[camera_code]);
-//	Mat_<Vec3b> temp;
-//	cvtColor(forgroundMask,temp,CV_GRAY2BGR);
-//	bitwise_and(temp, frame, result);
+
+	Mat_<Vec3b> temp;
+	cvtColor(forgroundMask,temp,CV_GRAY2BGR);
+	bitwise_and(temp, frame, result);
 	mask = forgroundMask;
+	result = temp;
+
 
 #endif
 	return result;
 #else
 	Mat_<uchar> forgroundMask = removeBackground(result, bModel.bMean[camera_code],
 				bModel.bVar[camera_code],bModel.bStd[camera_code]);
+	removeShadow(result,forgroundMask, bModel.bMean_hsv[camera_code],
+				bModel.bVar_hsv[camera_code],bModel.bStd_hsv[camera_code]);
 	mask = forgroundMask;
 	return frame;
 #endif
@@ -254,9 +260,16 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	KLTTracker tracker;
 	tracker.begin();
 #endif
+
 #ifdef OPT
 	IPPR::OpticalFlowProcessor opt;
 	opt.begin();
+#endif
+
+
+#ifdef SIL
+	IPPR::SilhouetteProcessor sil;
+	sil.begin();
 #endif
 
 	double total_time=0;
@@ -269,12 +282,13 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 		vector<Point2f>  featurePoints;
 #ifdef KLT
 		tracker.process(frame,mask);
-
 #endif
 #ifdef OPT
 		opt.process(frame,mask);
 #endif
-
+#ifdef SIL
+		sil.process(frame,mask);
+#endif
 		total_time += ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
 		displayFrame(frame, actor,action,camera, (int)(frameIndex-startFrame)/total_time);
 
@@ -303,6 +317,11 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	opt.calculateSSMOF();
 	opt.drawSSMOF();
 	saveMatrix(opt.getSSMOF(),"OpticalFlow",actor,action,camera,startFrame,endFrame);
+#endif
+#ifdef SIL
+	sil.calculateSSM();
+	sil.drawSSM();
+	saveMatrix(sil.getSSM(),"Sil",actor,action,camera,startFrame,endFrame);
 #endif
 }
 
