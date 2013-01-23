@@ -9,6 +9,7 @@
 #include "VideoProccessor.h"
 #include "BackgroundModel.h"
 #include "KLTTracker.h"
+#include "SSM/OpticalFlowProcessor.h"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -27,6 +28,7 @@
 
 #include "cvblobs/BlobResult.h"
 #include "cvblobs/BlobOperators.h"
+
 
 
 using namespace std;
@@ -224,10 +226,10 @@ Mat VideoProccessor::nextFrame(string actor,string camera,int frameIndex, Mat_<u
 			bModel.bVar[camera_code],bModel.bStd[camera_code]);
 	removeShadow(result,forgroundMask, bModel.bMean_hsv[camera_code],
 			bModel.bVar_hsv[camera_code],bModel.bStd_hsv[camera_code]);
-	Mat_<Vec3b> temp;
-	cvtColor(forgroundMask,temp,CV_GRAY2BGR);
-	bitwise_and(temp, frame, result);
-//	result = temp;
+//	Mat_<Vec3b> temp;
+//	cvtColor(forgroundMask,temp,CV_GRAY2BGR);
+//	bitwise_and(temp, frame, result);
+	mask = forgroundMask;
 
 #endif
 	return result;
@@ -248,8 +250,14 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	cvStartWindowThread();
 	namedWindow("Frame",0);
 	cvMoveWindow("Frame", 800, 300);
+#ifdef KLT
 	KLTTracker tracker;
 	tracker.begin();
+#endif
+#ifdef OPT
+	IPPR::OpticalFlowProcessor opt;
+	opt.begin();
+#endif
 
 	double total_time=0;
 	while (frameIndex < endFrame) {
@@ -261,6 +269,10 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 		vector<Point2f>  featurePoints;
 #ifdef KLT
 		tracker.process(frame,mask);
+
+#endif
+#ifdef OPT
+		opt.process(frame,mask);
 #endif
 
 		total_time += ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
@@ -287,6 +299,11 @@ void VideoProccessor::run(string actor,string action, string camera,int startFra
 	tracker.drawSSMVel();
 	saveMatrix(tracker.getSSMPos(),"Pos",actor,action,camera,startFrame,endFrame);
 #endif
+#ifdef OPT
+	opt.calculateSSMOF();
+	opt.drawSSMOF();
+	saveMatrix(opt.getSSMOF(),"OpticalFlow",actor,action,camera,startFrame,endFrame);
+#endif
 }
 
 void VideoProccessor::saveMatrix(Mat_<uchar> matrix,string type, string actor,string action,
@@ -302,7 +319,7 @@ void VideoProccessor::saveMatrix(Mat_<uchar> matrix,string type, string actor,st
 	free(mkdirCommand);
 
     char* filePath = (char*) malloc(200);
-    sprintf(filePath, OUTPUT_DIR "%s/%s/%s_cam%s_%d_%d.png",
+    sprintf(filePath, OUTPUT_DIR "%s/%s/r_%s_cam%s_%d_%d.png",
 			type.c_str(),action.c_str(), actor.c_str(), camera.c_str(),startFrame,endFrame);
 
     char* cfilePath = (char*) malloc(200);
