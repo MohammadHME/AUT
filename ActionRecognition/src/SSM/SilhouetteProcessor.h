@@ -24,7 +24,6 @@ public:
 	void process(cv::Mat &frame, cv::Mat_<uchar> mask);
 private:
 	void drawSSM(cv::Mat_<uchar>);
-	int index;
 	std::vector<cv::Mat_<uchar> > silhouettes;
 	cv::Mat_<uchar> _SSM;
 };

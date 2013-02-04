@@ -13,13 +13,17 @@
 #include <string>
 #include <map>
 
+#include <cv.h>
+#include <highgui.h>
+
+#include "utils/helper.h"
 #include "test/Test.h"
+#include "Descriptors/LogPolarDescriptor.h"
+
 
 using namespace std;
 
-int main() {
-	IPPR::Test test;test.run();return 0;
-
+void buildSSM(){
 	cout << "!!!Running!!!" << endl; // prints !!!Hello World!!!
 	DataSet dataset;
 	BackgroundModel bModel;
@@ -56,8 +60,48 @@ int main() {
 			}
 		}
 	}
-	return 0;
+}
 
+void buildSSMDescriptor(){
+	system("rm -r " OUTPUT_DIR "LPD");
+	system("mkdir -p " OUTPUT_DIR "LPD");
+
+	string type = "Sil";
+	DataSet dataset;
+	for(int i=0;i<dataset.actions.size();i++){
+		string action_code = dataset.actions.at(i);
+		char* input_dir = (char*) malloc(200);
+		sprintf(input_dir, OUTPUT_DIR "SSM/%s/%s/",type.c_str(),action_code.c_str());
+		string output_file = string(OUTPUT_DIR "LPD/"+type+"_"+action_code+".txt");
+
+
+		vector<string> files = fileList(input_dir,"png");
+		for(int j=0;j<files.size();j++){
+			int pos = files[i].rfind("/");
+			string file_name = files[j].substr(pos+1, files[j].length()-pos-5);
+			cout << "["<< file_name << "]" << endl;
+			IPPR::LogPolarDescriptor descriptor;
+			cv::Mat image = cv::imread(files[j]);
+			cv::Mat grayImage;
+
+			cvtColor(image, grayImage, CV_BGR2GRAY);
+
+
+			descriptor.buildDescriptor(grayImage,50);
+			descriptor.saveDescriptor(output_file,file_name);
+		}
+		free(input_dir);
+	}
+
+}
+
+void clean();
+int main() {
+	clean();
+	//	IPPR::Test test;test.run();return 0;
+//	buildSSM();
+	buildSSMDescriptor();
+//	dirList("/home/mohammad/AUT/Project/IXMAS/Output/SSM/Sil/1/");
 //	BackgroundModel bModel;
 //
 ////	bModel.buildAllBackgroundsModel();
@@ -74,3 +118,9 @@ int main() {
 	return 0;
 }
 
+void clean(){
+#ifdef CLEAN
+
+#endif
+
+}

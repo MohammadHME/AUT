@@ -101,23 +101,6 @@ Mat_<uchar> VideoProccessor::removeBackground(Mat &frame, Mat_<Vec3f> &bMean,
 
 #ifdef BBLOB
 	return findBiggestBlob(forground);
-//	CBlobResult blobs;
-//	CBlob biggestBlob;
-//
-//
-//	IplImage forgroundImage = forground;
-//	IplImage *blobMask;
-//	blobMask = cvCreateImage(cvGetSize(&forgroundImage), IPL_DEPTH_8U,3);
-//	cvZero(blobMask);
-//	blobs = CBlobResult(&forgroundImage, NULL, 0);
-//	blobs.GetNthBlob( CBlobGetArea(), 0, biggestBlob );
-//	blobs.Filter( blobs, B_EXCLUDE, CBlobGetArea(), B_LESS, 100);
-//	biggestBlob.FillBlob( blobMask, CV_RGB(255,255,255));
-//
-//	Mat_<Vec3b> temp = Mat(blobMask,false);
-////	bitwise_and(frame_clone, temp, frame);
-//	cvtColor(temp,forground,CV_BGR2GRAY);
-//	return forground;
 
 
 #else
@@ -333,16 +316,18 @@ void VideoProccessor::saveMatrix(Mat_<uchar> matrix,string type, string actor,st
 //    _mkdir(strPath.c_str());
 #elif defined(__linux__)
 	char* mkdirCommand = (char*) malloc(200);
-	sprintf(mkdirCommand, "mkdir -p "OUTPUT_DIR "%s/%s/",type.c_str(),action.c_str());
+	sprintf(mkdirCommand, "mkdir -p "OUTPUT_DIR "SSM/%s/%s/",type.c_str(),action.c_str());
+	system(mkdirCommand);
+	sprintf(mkdirCommand, "mkdir -p "OUTPUT_DIR "Debug/SSM/%s/%s/",type.c_str(),action.c_str());
 	system(mkdirCommand);
 	free(mkdirCommand);
 
     char* filePath = (char*) malloc(200);
-    sprintf(filePath, OUTPUT_DIR "%s/%s/r_%s_cam%s_%d_%d.png",
+    sprintf(filePath, OUTPUT_DIR "SSM/%s/%s/%s_cam%s_%d_%d.png",
 			type.c_str(),action.c_str(), actor.c_str(), camera.c_str(),startFrame,endFrame);
 
     char* cfilePath = (char*) malloc(200);
-	sprintf(cfilePath, OUTPUT_DIR "%s/%s/c_%s_cam%s_%d_%d.png",
+	sprintf(cfilePath, OUTPUT_DIR "Debug/SSM/%s/%s/%s_cam%s_%d_%d.png",
 			type.c_str(),action.c_str(), actor.c_str(), camera.c_str(),startFrame,endFrame);
 #endif
 	imwrite(filePath,matrix);

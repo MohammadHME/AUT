@@ -27,4 +27,6 @@
 //#define OPT
 #define SIL
 
+//#define CLEAN
+
 //#define BLUR_ENABLED
